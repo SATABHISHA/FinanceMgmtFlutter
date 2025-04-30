@@ -1,4 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'login_event.dart';
 import 'login_state.dart';
 
@@ -17,11 +19,30 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
 
     on<LoginSubmitted>((event, emit) async {
       emit(LoginLoading());
-      await Future.delayed(const Duration(seconds: 2)); // Simulate API call
-      if (_username == 'admin' && _password == 'password') {
-        emit(LoginSuccess());
-      } else {
-        emit(LoginFailure('Invalid username or password'));
+      try {
+        // Make the POST API call
+        final response = await http.post(
+          Uri.parse('https://ourprojectapi.sroy.es/public/api/login'),
+          body: {
+            'name': _username,
+            'password': _password,
+          },
+        );
+
+        if (response.statusCode == 200) {
+          final responseData = json.decode(response.body);
+
+          // Check the response status
+          if (responseData['response']['status'] == true) {
+            emit(LoginSuccess());
+          } else {
+            emit(LoginFailure(responseData['response']['message'] ?? 'Login failed'));
+          }
+        } else {
+          emit(LoginFailure('Server error: ${response.statusCode}'));
+        }
+      } catch (e) {
+        emit(LoginFailure('An error occurred: $e'));
       }
     });
   }
